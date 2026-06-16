@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Catatan Keuangan</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+    font-family:Arial;
+    max-width:800px;
+    margin:auto;
+    padding:20px;
+}
+input,select,button{
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+th,td{
+    border:1px solid #ddd;
+    padding:8px;
+}
+</style>
+
+</head>
+<body>
+
+<h1>Catatan Keuangan</h1>
+
+<input type="date" id="tanggal">
+
+<select id="jenis">
+    <option>Pemasukan</option>
+    <option>Pengeluaran</option>
+</select>
+
+<input type="number" id="nominal" placeholder="Nominal">
+
+<input type="text" id="keterangan" placeholder="Keterangan">
+
+<button onclick="simpanData()">
+Simpan
+</button>
+
+<h2>Saldo</h2>
+<h3 id="saldo">Rp 0</h3>
+
+<h2>Riwayat</h2>
+
+<table>
+<thead>
+<tr>
+<th>Tanggal</th>
+<th>Jenis</th>
+<th>Nominal</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+
+<tbody id="hasil"></tbody>
+</table>
+
+<script src="app.js"></script>
+
+</body>
+</html>
