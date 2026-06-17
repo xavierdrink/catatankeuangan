@@ -7,6 +7,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
+    </script>
 
     <style>
         /* ====================================================
@@ -305,11 +307,39 @@
             margin-bottom: 16px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
             gap: 8px;
         }
 
-        .card-title span {
+        .card-title .title-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .title-left span {
             font-size: 18px;
+        }
+
+        .btn-export {
+            background: var(--primary);
+            color: #fff;
+            padding: 6px 16px;
+            font-size: 13px;
+            border-radius: var(--radius-full);
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition);
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export:hover {
+            transform: scale(1.04);
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
         }
 
         /* ====================================================
@@ -318,7 +348,7 @@
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px 20px;  /* ← diperbesar agar lebih lega */
+            gap: 16px 20px;
         }
 
         .form-grid .full-width {
@@ -329,7 +359,7 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
-            margin-bottom: 2px; /* tambahan untuk jarak vertikal antar grup */
+            margin-bottom: 2px;
         }
 
         .form-group label {
@@ -415,7 +445,7 @@
             padding: 14px;
             font-size: 15px;
             border-radius: var(--radius-sm);
-            margin-top: 18px;  /* ← jarak lebih lega dari field terakhir */
+            margin-top: 18px;
             box-shadow: 0 4px 16px rgba(79, 70, 229, 0.28);
             position: relative;
             overflow: hidden;
@@ -636,7 +666,7 @@
 
             .form-grid {
                 grid-template-columns: 1fr;
-                gap: 14px;  /* satu kolom, jarak lebih lega */
+                gap: 14px;
             }
 
             .form-grid .full-width {
@@ -652,7 +682,7 @@
             .btn-primary {
                 padding: 12px;
                 font-size: 14px;
-                margin-top: 16px; /* jarak atas yang cukup di mobile */
+                margin-top: 16px;
             }
 
             /* ==========================================
@@ -730,6 +760,11 @@
                 padding: 5px 12px;
                 font-size: 11px;
             }
+
+            .btn-export {
+                font-size: 12px;
+                padding: 4px 12px;
+            }
         }
 
         /* Mobile small */
@@ -798,46 +833,7 @@
         }
 
         /* ====================================================
-               TOMBOL "KOSONGKAN" (opsional, untuk sentuhan)
-               ==================================================== */
-        .empty-state {
-            text-align: center;
-            padding: 30px 10px;
-            color: var(--text-muted);
-        }
-
-        .empty-state span {
-            font-size: 40px;
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        .empty-state p {
-            font-size: 14px;
-        }
-
-        /* ====================================================
-               UTILITY — hide/show
-               ==================================================== */
-        .hidden {
-            display: none !important;
-        }
-
-        /* ====================================================
-               RESPONSIVE FINE-TUNE untuk tablet portrait
-               ==================================================== */
-        @media (min-width: 641px) and (max-width: 900px) {
-            .stat p {
-                font-size: 22px;
-            }
-            .form-grid {
-                grid-template-columns: 1fr 1fr;
-                gap: 16px 20px;
-            }
-        }
-
-        /* ====================================================
-               DUKUNGAN DARK MODE (opsional — tetap light first)
+               DUKUNGAN DARK MODE
                ==================================================== */
         @media (prefers-color-scheme: dark) {
             :root {
@@ -961,7 +957,9 @@
         <!-- ========== FORM TAMBAH / EDIT ========== -->
         <div class="card">
             <div class="card-title">
-                <span>✏️</span> Tambah / Edit Transaksi
+                <div class="title-left">
+                    <span>✏️</span> Tambah / Edit Transaksi
+                </div>
             </div>
 
             <input type="hidden" id="editId" />
@@ -982,7 +980,7 @@
 
                 <div class="form-group full-width">
                     <label for="nominal">Nominal</label>
-                    <input type="number" id="nominal" placeholder="0" />
+                    <input type="text" id="nominal" placeholder="0" inputmode="numeric" />
                 </div>
 
                 <div class="form-group full-width">
@@ -997,12 +995,17 @@
         </div>
 
         <!-- ========== TABEL TRANSAKSI ========== -->
-        <div class="card">
+        <div class="card" id="riwayatCard">
             <div class="card-title">
-                <span>📋</span> Riwayat Transaksi
+                <div class="title-left">
+                    <span>📋</span> Riwayat Transaksi
+                </div>
+                <button class="btn-export" onclick="exportImage()">
+                    📸 Export Gambar
+                </button>
             </div>
 
-            <div class="table-wrap">
+            <div class="table-wrap" id="tableWrap">
                 <table>
                     <thead>
                         <tr>
@@ -1023,7 +1026,7 @@
     </div>
 
     <!-- ============================================================
-    JAVASCRIPT — Supabase + Logika
+    JAVASCRIPT — Supabase + Logika + Format Rupiah + Export Gambar
     ============================================================ -->
     <script>
         // ---- Konfigurasi Supabase ----
@@ -1036,6 +1039,48 @@
         // ---- Helper ----
         function rupiah(x) {
             return "Rp " + Number(x).toLocaleString("id-ID");
+        }
+
+        // ---- Format Rupiah pada input nominal (dengan titik) ----
+        function formatRupiah(angka) {
+            // Hanya angka dan titik (pembersihan)
+            let value = angka.replace(/[^,\d]/g, '');
+            // Pisahkan bagian desimal jika ada (koma)
+            let parts = value.split(',');
+            let integer = parts[0];
+            let decimal = parts[1] || '';
+            // Hapus titik yang sudah ada lalu format dengan titik ribuan
+            integer = integer.replace(/\./g, '');
+            let formatted = new Intl.NumberFormat('id-ID').format(integer);
+            if (decimal.length > 0) {
+                formatted += ',' + decimal;
+            }
+            return formatted;
+        }
+
+        // Fungsi untuk membersihkan format dan mengembalikan angka murni
+        function unformatRupiah(value) {
+            return value.replace(/[^0-9,-]/g, '').replace(/,/g, '.');
+        }
+
+        // Event listener untuk input nominal
+        document.getElementById('nominal').addEventListener('input', function(e) {
+            let cursorPos = this.selectionStart;
+            let raw = this.value;
+            // Simpan posisi kursor sebelum format
+            let formatted = formatRupiah(raw);
+            this.value = formatted;
+            // Set cursor ke posisi yang sesuai (kira-kira)
+            let newPos = cursorPos + (formatted.length - raw.length);
+            if (newPos < 0) newPos = 0;
+            this.setSelectionRange(newPos, newPos);
+        });
+
+        // Saat form disubmit, ambil nilai numerik
+        function getNominalValue() {
+            let raw = document.getElementById('nominal').value;
+            let clean = raw.replace(/[^0-9]/g, '');
+            return Number(clean) || 0;
         }
 
         // ---- Cek koneksi database ----
@@ -1058,7 +1103,7 @@
             const id = document.getElementById("editId").value;
             const tanggal = document.getElementById("tanggal").value;
             const jenis = document.getElementById("jenis").value;
-            const nominal = Number(document.getElementById("nominal").value);
+            const nominal = getNominalValue(); // ambil angka murni
             const keterangan = document.getElementById("keterangan").value;
 
             if (!tanggal || !nominal) {
@@ -1089,7 +1134,8 @@
             document.getElementById("editId").value = item.id;
             document.getElementById("tanggal").value = item.tanggal;
             document.getElementById("jenis").value = item.jenis;
-            document.getElementById("nominal").value = item.nominal;
+            // Tampilkan nominal dengan format rupiah
+            document.getElementById("nominal").value = formatRupiah(item.nominal.toString());
             document.getElementById("keterangan").value = item.keterangan || "";
 
             window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1156,7 +1202,6 @@
                         `
                     };
 
-                    // Untuk mobile: data-label
                     const keys = ["Tanggal", "Jenis", "Nominal", "Keterangan", "Aksi"];
                     let cells = "";
                     keys.forEach((key) => {
@@ -1179,6 +1224,44 @@
             document.getElementById("masuk").textContent = rupiah(masuk);
             document.getElementById("keluar").textContent = rupiah(keluar);
             document.getElementById("saldo").textContent = rupiah(masuk - keluar);
+        }
+
+        // ---- Export Gambar (menggunakan html2canvas) ----
+        async function exportImage() {
+            const element = document.getElementById('riwayatCard');
+            // Tampilkan loading (opsional)
+            const btn = document.querySelector('.btn-export');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Memproses...';
+            btn.disabled = true;
+
+            try {
+                // Ambil hanya area tabel (tanpa tombol aksi? biarkan saja)
+                const canvas = await html2canvas(element, {
+                    scale: 2, // kualitas lebih baik
+                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() ||
+                        '#ffffff',
+                    logging: false,
+                    allowTaint: false,
+                    useCORS: true,
+                    onclone: function(clonedDoc) {
+                        // Sembunyikan tombol aksi di clone? tidak perlu
+                    }
+                });
+
+                // Download sebagai PNG
+                const link = document.createElement('a');
+                link.download = `riwayat-transaksi-${new Date().toISOString().slice(0,10)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+            } catch (error) {
+                console.error('Gagal export gambar:', error);
+                alert('Gagal export gambar. Silakan coba lagi.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
 
         // ---- Inisialisasi ----
