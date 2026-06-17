@@ -2,73 +2,505 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Catatan Keuangan</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
+:root{
+--bg:#f6f8fb;
+--card:#ffffff;
+--primary:#2563eb;
+--success:#16a34a;
+--danger:#dc2626;
+--text:#1f2937;
+--muted:#6b7280;
+--border:#e5e7eb;
+}
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
 body{
-    font-family:Arial;
-    max-width:800px;
-    margin:auto;
-    padding:20px;
+font-family:system-ui,sans-serif;
+background:var(--bg);
+color:var(--text);
+padding:16px;
 }
-input,select,button{
-    width:100%;
-    padding:10px;
-    margin:5px 0;
+
+.container{
+max-width:1100px;
+margin:auto;
 }
+
+.header{
+margin-bottom:20px;
+}
+
+.header h1{
+font-size:28px;
+}
+
+.status{
+margin-top:8px;
+font-size:14px;
+font-weight:600;
+}
+
+.card{
+background:var(--card);
+border-radius:18px;
+padding:16px;
+margin-bottom:16px;
+box-shadow:0 4px 18px rgba(0,0,0,.05);
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:12px;
+}
+
+.stat{
+padding:15px;
+border-radius:14px;
+color:white;
+}
+
+.income{
+background:var(--success);
+}
+
+.expense{
+background:var(--danger);
+}
+
+.balance{
+background:var(--primary);
+}
+
+.stat h3{
+font-size:14px;
+opacity:.9;
+}
+
+.stat p{
+font-size:22px;
+font-weight:bold;
+margin-top:5px;
+}
+
+input,
+select{
+width:100%;
+padding:12px;
+border:1px solid var(--border);
+border-radius:12px;
+margin-top:10px;
+}
+
+button{
+border:none;
+padding:12px;
+border-radius:12px;
+cursor:pointer;
+font-weight:600;
+}
+
+.btn-primary{
+background:var(--primary);
+color:white;
+width:100%;
+margin-top:10px;
+}
+
+.btn-edit{
+background:#f59e0b;
+color:white;
+}
+
+.btn-delete{
+background:var(--danger);
+color:white;
+}
+
+.table-wrap{
+overflow-x:auto;
+}
+
 table{
-    width:100%;
-    border-collapse:collapse;
+width:100%;
+border-collapse:collapse;
 }
+
 th,td{
-    border:1px solid #ddd;
-    padding:8px;
+padding:12px;
+border-bottom:1px solid var(--border);
+text-align:left;
+}
+
+.badge{
+padding:5px 10px;
+border-radius:999px;
+font-size:12px;
+font-weight:600;
+}
+
+.badge.in{
+background:#dcfce7;
+color:#166534;
+}
+
+.badge.out{
+background:#fee2e2;
+color:#991b1b;
+}
+
+.action{
+display:flex;
+gap:5px;
+}
+
+@media(max-width:700px){
+
+table thead{
+display:none;
+}
+
+table,
+tbody,
+tr,
+td{
+display:block;
+width:100%;
+}
+
+tr{
+background:white;
+margin-bottom:10px;
+border-radius:12px;
+padding:10px;
+}
+
+td{
+border:none;
+padding:6px 0;
+}
+
 }
 </style>
-
 </head>
 <body>
 
-<h1>Catatan Keuangan</h1>
+<div class="container">
+
+<div class="header">
+<h1>💰 Catatan Keuangan</h1>
+<div id="dbStatus" class="status">
+🟡 Mengecek database...
+</div>
+</div>
+
+<div class="grid">
+
+<div class="stat income">
+<h3>Total Pemasukan</h3>
+<p id="masuk">Rp 0</p>
+</div>
+
+<div class="stat expense">
+<h3>Total Pengeluaran</h3>
+<p id="keluar">Rp 0</p>
+</div>
+
+<div class="stat balance">
+<h3>Saldo</h3>
+<p id="saldo">Rp 0</p>
+</div>
+
+</div>
+
+<div class="card">
+
+<input type="hidden" id="editId">
 
 <input type="date" id="tanggal">
 
 <select id="jenis">
-    <option>Pemasukan</option>
-    <option>Pengeluaran</option>
+<option>Pemasukan</option>
+<option>Pengeluaran</option>
 </select>
 
 <input type="number" id="nominal" placeholder="Nominal">
 
 <input type="text" id="keterangan" placeholder="Keterangan">
 
-<button onclick="simpanData()">
-Simpan
+<button class="btn-primary" onclick="simpanData()">
+Simpan Transaksi
 </button>
 
-<h2>Saldo</h2>
-<h3 id="saldo">Rp 0</h3>
+</div>
 
-<h2>Riwayat</h2>
+<div class="card">
+
+<div class="table-wrap">
 
 <table>
+
 <thead>
 <tr>
 <th>Tanggal</th>
 <th>Jenis</th>
 <th>Nominal</th>
 <th>Keterangan</th>
+<th>Aksi</th>
 </tr>
 </thead>
 
 <tbody id="hasil"></tbody>
+
 </table>
 
-<script src="app.js"></script>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const SUPABASE_URL =
+"https://nejhcqdcwdplglkvqrpf.supabase.co/rest/v1/";
+
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lamhjcWRjd2RwbGdsa3ZxcnBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NDg4MzksImV4cCI6MjA5NzIyNDgzOX0.8G2d_-aMMak1MMEzwpeekRGy7mBaLr2h4Izl6oAHy5g";
+
+const db =
+supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+function rupiah(x){
+return "Rp " + Number(x).toLocaleString("id-ID");
+}
+
+async function cekDatabase(){
+
+const status =
+document.getElementById("dbStatus");
+
+try{
+
+const { error } =
+await db
+.from("transaksi")
+.select("id")
+.limit(1);
+
+if(error){
+status.innerHTML =
+"🔴 Database Error";
+}else{
+status.innerHTML =
+"🟢 Terhubung ke Supabase";
+}
+
+}catch(e){
+
+status.innerHTML =
+"🔴 Tidak Terhubung";
+
+}
+
+}
+
+async function simpanData(){
+
+const id =
+document.getElementById("editId").value;
+
+const data = {
+
+tanggal:
+document.getElementById("tanggal").value,
+
+jenis:
+document.getElementById("jenis").value,
+
+nominal:
+Number(
+document.getElementById("nominal").value
+),
+
+keterangan:
+document.getElementById("keterangan").value
+
+};
+
+let result;
+
+if(id){
+
+result =
+await db
+.from("transaksi")
+.update(data)
+.eq("id",id);
+
+}else{
+
+result =
+await db
+.from("transaksi")
+.insert([data]);
+
+}
+
+if(result.error){
+alert(result.error.message);
+return;
+}
+
+resetForm();
+loadData();
+
+}
+
+function editData(item){
+
+document.getElementById("editId").value =
+item.id;
+
+document.getElementById("tanggal").value =
+item.tanggal;
+
+document.getElementById("jenis").value =
+item.jenis;
+
+document.getElementById("nominal").value =
+item.nominal;
+
+document.getElementById("keterangan").value =
+item.keterangan || "";
+
+window.scrollTo({
+top:0,
+behavior:"smooth"
+});
+
+}
+
+async function hapusData(id){
+
+if(!confirm("Hapus transaksi?"))
+return;
+
+await db
+.from("transaksi")
+.delete()
+.eq("id",id);
+
+loadData();
+
+}
+
+function resetForm(){
+
+document.getElementById("editId").value="";
+document.getElementById("tanggal").value="";
+document.getElementById("jenis").value="Pemasukan";
+document.getElementById("nominal").value="";
+document.getElementById("keterangan").value="";
+
+}
+
+async function loadData(){
+
+const { data,error } =
+await db
+.from("transaksi")
+.select("*")
+.order("id",{ascending:false});
+
+if(error){
+console.log(error);
+return;
+}
+
+let html="";
+let masuk=0;
+let keluar=0;
+
+data.forEach(item=>{
+
+if(item.jenis==="Pemasukan"){
+masuk+=Number(item.nominal);
+}else{
+keluar+=Number(item.nominal);
+}
+
+html += `
+<tr>
+<td>${item.tanggal}</td>
+<td>
+<span class="badge ${item.jenis==="Pemasukan"?"in":"out"}">
+${item.jenis}
+</span>
+</td>
+<td>${rupiah(item.nominal)}</td>
+<td>${item.keterangan || "-"}</td>
+<td>
+<div class="action">
+<button class="btn-edit"
+onclick='editData(${JSON.stringify(item)})'>
+Edit
+</button>
+
+<button class="btn-delete"
+onclick='hapusData(${item.id})'>
+Hapus
+</button>
+</div>
+</td>
+</tr>
+`;
+
+});
+
+document.getElementById("hasil").innerHTML = html;
+
+document.getElementById("masuk").innerHTML =
+rupiah(masuk);
+
+document.getElementById("keluar").innerHTML =
+rupiah(keluar);
+
+document.getElementById("saldo").innerHTML =
+rupiah(masuk-keluar);
+
+}
+
+cekDatabase();
+loadData();
+
+db.channel("realtime-transaksi")
+.on(
+"postgres_changes",
+{
+event:"*",
+schema:"public",
+table:"transaksi"
+},
+() => loadData()
+)
+.subscribe();
+
+</script>
 
 </body>
 </html>
